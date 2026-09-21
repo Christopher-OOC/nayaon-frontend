@@ -1,30 +1,42 @@
-import AppAreaChart from "@/components/AppAreaChart";
-import AppBarChart from "@/components/AppBarChart";
-import AppPieChart from "@/components/AppPieChart";
-import CardList from "@/components/CardList";
-import TodoList from "@/components/TodoList";
+"use client";
 
-const Homepage = () => {
+import React from "react";
+import JavaLordNavbar from "@/components/javalord/JavaLordNavbar";
+import JavaLordHero from "@/components/javalord/JavaLordHero";
+import JavaLordProducts from "@/components/javalord/JavaLordProducts";
+import JavaLordFeatures from "@/components/javalord/JavaLordFeatures";
+import JavaLordFooter from "@/components/javalord/JavaLordFooter";
+
+export default function Homepage() {
+  const handleGetStarted = () => {
+    const regBtn = document.getElementById("register-btn");
+    if (regBtn) {
+      regBtn.click();
+    } else {
+      const productsSection = document.getElementById("products");
+      productsSection?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-4 gap-4">
-      <div className="bg-primary-foreground p-4 rounded-lg lg:col-span-2 xl:col-span-1 2xl:col-span-2">
-        <AppBarChart />
-      </div>
-      <div className="bg-primary-foreground p-4 rounded-lg">
-        <CardList title="Latest Transactions" />
-      </div>
-      <div className="bg-primary-foreground p-4 rounded-lg">
-        <AppPieChart />
-      </div>
-      <div className="bg-primary-foreground p-4 rounded-lg"><TodoList/></div>
-      <div className="bg-primary-foreground p-4 rounded-lg lg:col-span-2 xl:col-span-1 2xl:col-span-2">
-        <AppAreaChart />
-      </div>
-      <div className="bg-primary-foreground p-4 rounded-lg">
-        <CardList title="Popular Content" />
-      </div>
+    <div className="w-full min-h-screen bg-[#070a0f] text-slate-100 flex flex-col antialiased">
+      {/* Top Header / Navigation */}
+      <JavaLordNavbar />
+
+      {/* Main Content Sections */}
+      <main className="flex-1 w-full">
+        {/* Hero Section with 4-card metrics and trust strip */}
+        <JavaLordHero onGetStarted={handleGetStarted} />
+
+        {/* Our Products Section */}
+        <JavaLordProducts />
+
+        {/* Bottom 4 Feature Highlights */}
+        <JavaLordFeatures />
+      </main>
+
+      {/* Footer */}
+      <JavaLordFooter />
     </div>
   );
-};
-
-export default Homepage;
+}

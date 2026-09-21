@@ -128,7 +128,7 @@ const EditUser = () => {
                   <FormItem>
                     <FormLabel>Role</FormLabel>
                     <FormControl>
-                      <Select>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <SelectTrigger>
                           <SelectValue placeholder="Role" />
                         </SelectTrigger>
