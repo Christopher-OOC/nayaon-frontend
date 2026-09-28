@@ -14,9 +14,17 @@ import {
 import { Button } from "./ui/button";
 import { useTheme } from "next-themes";
 import { SidebarTrigger } from "./ui/sidebar";
+import { clearAuthSession } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 
 const Navbar = () => {
   const { setTheme } = useTheme();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    clearAuthSession();
+    router.replace("/");
+  };
   return (
     <nav className="p-4 flex items-center justify-between sticky top-0 bg-background z-10">
       {/* LEFT */}
@@ -26,7 +34,7 @@ const Navbar = () => {
       </Button> */}
       {/* RIGHT */}
       <div className="flex items-center gap-4">
-        <Link href="/">Dashboard</Link>
+        <Link href="/dashboard">Dashboard</Link>
         {/* THEME MENU */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -67,7 +75,7 @@ const Navbar = () => {
               <Settings className="h-[1.2rem] w-[1.2rem] mr-2" />
               Settings
             </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive">
+            <DropdownMenuItem variant="destructive" onClick={handleLogout}>
               <LogOut className="h-[1.2rem] w-[1.2rem] mr-2" />
               Logout
             </DropdownMenuItem>

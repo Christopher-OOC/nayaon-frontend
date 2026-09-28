@@ -16,6 +16,21 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Token Purchase Setup
+
+Set the company transfer details in `.env.local` to show them on the Tokens page:
+
+```env
+NEXT_PUBLIC_MY_TOKENS_ENDPOINT=/api/v1/tokens
+NEXT_PUBLIC_TOKEN_ACCOUNT_BANK=
+NEXT_PUBLIC_TOKEN_ACCOUNT_NAME=
+NEXT_PUBLIC_TOKEN_ACCOUNT_NUMBER=
+```
+
+`NEXT_PUBLIC_MY_TOKENS_ENDPOINT` defaults to `/api/v1/tokens`. It can be a full URL or a path relative to `NEXT_PUBLIC_API_BASE_URL`. The request includes the signed-in member's Bearer access token. The response can be an array of token records or an object containing an `items` array.
+
+The other `NEXT_PUBLIC_` values are included in the browser bundle, so only use them for company account details intended to be visible to members. Receipt selection is available in the UI; submitting receipts requires a backend upload endpoint, which is not configured yet.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

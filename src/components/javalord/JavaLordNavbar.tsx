@@ -19,8 +19,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { login, saveAuthSession } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 
 export default function JavaLordNavbar() {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -28,6 +31,8 @@ export default function JavaLordNavbar() {
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPass, setLoginPass] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regSponsor, setRegSponsor] = useState("JL-884920 (Founder)");
@@ -48,6 +53,25 @@ export default function JavaLordNavbar() {
       setRegSuccess(false);
       setRegisterOpen(false);
     }, 2000);
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoginError("");
+    setLoginLoading(true);
+
+    try {
+      const session = await login({ username: loginEmail.trim(), password: loginPass });
+      saveAuthSession(session);
+      setLoginOpen(false);
+      router.push("/dashboard");
+    } catch (error) {
+      setLoginError(
+        error instanceof Error ? error.message : "Unable to sign in. Please try again.",
+      );
+    } finally {
+      setLoginLoading(false);
+    }
   };
 
   return (
@@ -239,26 +263,27 @@ export default function JavaLordNavbar() {
             </DialogDescription>
           </DialogHeader>
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setLoginOpen(false);
-            }}
+            onSubmit={handleLoginSubmit}
             className="space-y-4 pt-2"
           >
             <div>
-              <Label className="text-xs text-slate-300">Email or Member ID</Label>
+              <Label htmlFor="login-username" className="text-xs text-slate-300">Username</Label>
               <Input
+                id="login-username"
+                autoComplete="username"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="e.g. member@javalord.com or JL-25841"
+                placeholder="Enter your username"
                 className="mt-1 bg-[#121824] border-slate-800 text-white placeholder:text-slate-600 focus:border-[#a3e635]"
                 required
               />
             </div>
             <div>
-              <Label className="text-xs text-slate-300">Password</Label>
+              <Label htmlFor="login-password" className="text-xs text-slate-300">Password</Label>
               <Input
+                id="login-password"
                 type="password"
+                autoComplete="current-password"
                 value={loginPass}
                 onChange={(e) => setLoginPass(e.target.value)}
                 placeholder="••••••••"
@@ -275,11 +300,17 @@ export default function JavaLordNavbar() {
                 Forgot password?
               </a>
             </div>
+            {loginError && (
+              <p role="alert" className="text-sm text-red-400">
+                {loginError}
+              </p>
+            )}
             <Button
               type="submit"
+              disabled={loginLoading}
               className="w-full bg-[#a3e635] hover:bg-[#bef264] text-black font-semibold mt-2"
             >
-              Sign In to Account
+              {loginLoading ? "Signing in..." : "Sign In to Account"}
             </Button>
             <p className="text-center text-xs text-slate-400">
               Don&apos;t have an account yet?{" "}

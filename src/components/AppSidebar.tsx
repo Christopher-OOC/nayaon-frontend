@@ -9,6 +9,7 @@ import {
   Plus,
   Projector,
   ChevronDown,
+  Coins,
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,9 +45,14 @@ import {
 
 const items = [
   {
-    title: "Home",
-    url: "/",
+    title: "Dashboard",
+    url: "/dashboard",
     icon: Home,
+  },
+  {
+    title: "Tokens",
+    url: "/tokens",
+    icon: Coins,
   },
   {
     title: "Inbox",
