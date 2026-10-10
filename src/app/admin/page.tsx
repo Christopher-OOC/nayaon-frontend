@@ -12,6 +12,14 @@ const adminSections = [
     count: "Catalog",
   },
   {
+    title: "Packages",
+    description: "Create, update, and review membership packages.",
+    href: "/admin/packages",
+    icon: Package,
+    accent: "text-violet-700 bg-violet-500/10",
+    count: "Catalog",
+  },
+  {
     title: "Members",
     description: "Browse member profiles and account activity.",
     href: "/users",

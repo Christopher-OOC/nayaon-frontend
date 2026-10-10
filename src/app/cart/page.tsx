@@ -23,8 +23,9 @@ type CartProduct = {
 };
 
 type CartItem = {
-  cartItemId: number;
-  quantity: number;
+  cartItemId?: number | string;
+  id?: number | string;
+  quantity: number | string;
   product?: CartProduct;
   productId?: number | string;
   productName?: string;
@@ -75,9 +76,17 @@ function parseCart(payload: unknown): Cart {
   };
 }
 
+function normalizeCartItemId(value: number | string | undefined): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function itemId(item: CartItem): number | null {
-  const id = item.cartItemId;
-  return typeof id === "number" ? id : null;
+  return normalizeCartItemId(item.cartItemId ?? item.id);
 }
 
 function itemName(item: CartItem): string {
@@ -119,7 +128,9 @@ export default function CartPage() {
       setCart(result);
       setQuantities(Object.fromEntries(result.cartItems.flatMap((item) => {
         const id = itemId(item);
-        return id === null ? [] : [[id, String(item.quantity ?? 1)]];
+        if (id === null) return [];
+        const nextQuantity = Number(item.quantity ?? 1);
+        return [[id, Number.isFinite(nextQuantity) && nextQuantity > 0 ? String(nextQuantity) : "1"]];
       })));
     } catch (loadError) {
       if (signal?.aborted) return;
@@ -146,18 +157,27 @@ export default function CartPage() {
       const id = itemId(item);
       if (id === null) return [];
       const quantity = Number(quantities[id]);
-      return Number.isInteger(quantity) && quantity > 0 ? [{ cartItemId: id, quantity }] : [];
+      if (!Number.isInteger(quantity) || quantity <= 0) return [];
+      return [{ cartItemId: id, quantity }];
     });
-    if (updatePayload.length !== items.length) {
+
+    if (items.length > 0 && updatePayload.length !== items.length) {
       setError("Every item must have a valid quantity of at least 1.");
       return;
     }
+
+    if (items.length === 0) {
+      setNotice("No cart items to update.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setNotice("");
     try {
       const response = await authenticatedFetch(cartEndpoint, {
         method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatePayload),
       });
       const payload: unknown = await response.json().catch(() => null);
@@ -183,11 +203,12 @@ export default function CartPage() {
       if (!response.ok) throw new Error(getMessage(payload, "Could not remove this item."));
       setCart(parseCart(payload));
       setNotice("Item removed from cart.");
+      setRemovingId(null);
       await loadCart();
     } catch (removeError) {
       setError(removeError instanceof Error ? removeError.message : "Could not remove this item.");
     } finally {
-      setRemovingId(null);
+      setRemovingId((current) => (current === id ? null : current));
     }
   };
 
@@ -281,7 +302,6 @@ export default function CartPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <h2 className="font-medium">{itemName(item)}</h2>
-                      {productId && <p className="mt-1 text-xs text-muted-foreground">Product ID: {productId}</p>}
                       <p className="mt-2 text-sm font-semibold tabular-nums">{formatPrice(itemPrice(item))}</p>
                     </div>
                     <div className="flex items-center gap-2">

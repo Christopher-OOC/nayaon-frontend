@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { AlertCircle, ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Coins, Plus, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertCircle, ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Coins, LoaderCircle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,6 +45,14 @@ interface PurchasedToken {
   price: number;
 }
 
+interface PackageOption {
+  id?: number | string;
+  packageId?: number | string;
+  name: string;
+  description?: string;
+  price: number;
+}
+
 const transferDetails = {
   bank: process.env.NEXT_PUBLIC_TOKEN_ACCOUNT_BANK,
   accountName: process.env.NEXT_PUBLIC_TOKEN_ACCOUNT_NAME,
@@ -52,6 +60,14 @@ const transferDetails = {
 };
 export default function TokensPage() {
   const [showPurchase, setShowPurchase] = useState(false);
+  const [packages, setPackages] = useState<PackageOption[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [packagesError, setPackagesError] = useState("");
+  const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [purchaseLoading, setPurchaseLoading] = useState(false);
+  const [purchaseError, setPurchaseError] = useState("");
+  const [purchaseNotice, setPurchaseNotice] = useState("");
+  const [tokenRefreshKey, setTokenRefreshKey] = useState(0);
   const [tokens, setTokens] = useState<PurchasedToken[]>([]);
   const [tokensLoading, setTokensLoading] = useState(true);
   const [tokensError, setTokensError] = useState("");
@@ -60,9 +76,49 @@ export default function TokensPage() {
   const [totalPages, setTotalPages] = useState<number | null>(null);
   const [quantity, setQuantity] = useState("1");
   const [receipt, setReceipt] = useState<File | null>(null);
-  const [receiptError, setReceiptError] = useState("");
   const [copied, setCopied] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!showPurchase) return;
+
+    const controller = new AbortController();
+    const loadPackages = async () => {
+      setPackagesLoading(true);
+      setPackagesError("");
+      try {
+        const endpoint = process.env.NEXT_PUBLIC_PACKAGES_ENDPOINT || "/api/v1/packages";
+        const response = await authenticatedFetch(endpoint, { signal: controller.signal });
+        const payload: unknown = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(getApiMessage(payload, "Could not load packages."));
+        }
+        const data = payload && typeof payload === "object"
+          ? (payload as Record<string, unknown>).data
+          : null;
+        if (!Array.isArray(data)) {
+          throw new Error("The packages response did not contain a package list.");
+        }
+        const availablePackages = (data as PackageOption[]).filter((packageOption) =>
+          packageOption.id !== undefined && packageOption.id !== null
+          || packageOption.packageId !== undefined && packageOption.packageId !== null,
+        );
+        setPackages(availablePackages);
+        setSelectedPackageId((current) =>
+          availablePackages.some((packageOption) => getPackageId(packageOption) === current)
+            ? current
+            : getPackageId(availablePackages[0]) ?? "",
+        );
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setPackagesError(error instanceof Error ? error.message : "Could not load packages.");
+      } finally {
+        if (!controller.signal.aborted) setPackagesLoading(false);
+      }
+    };
+
+    void loadPackages();
+    return () => controller.abort();
+  }, [showPurchase]);
 
   useEffect(() => {
     const endpoint = process.env.NEXT_PUBLIC_MY_TOKENS_ENDPOINT || "/api/v1/tokens";
@@ -116,40 +172,55 @@ export default function TokensPage() {
 
     void loadTokens();
     return () => controller.abort();
-  }, [page, pageSize]);
+  }, [page, pageSize, tokenRefreshKey]);
 
   const accountDetailsConfigured = Object.values(transferDetails).every(Boolean);
+  const selectedPackage = packages.find((packageOption) => getPackageId(packageOption) === selectedPackageId);
+  const parsedQuantity = Math.max(0, Number.parseInt(quantity, 10) || 0);
+  const totalAmount = parsedQuantity * Number(selectedPackage?.price ?? 0);
+
+  const submitPurchase = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedPackageId) {
+      setPurchaseError("Select a package before submitting your purchase.");
+      return;
+    }
+    setPurchaseLoading(true);
+    setPurchaseError("");
+    setPurchaseNotice("");
+    try {
+      const body = new FormData();
+      body.append("data", JSON.stringify({
+        quantity: parsedQuantity,
+        packageId: Number(selectedPackageId),
+      }));
+      if (receipt) body.append("file", receipt);
+
+      const response = await authenticatedFetch("/api/v1/tokens/purchase", {
+        method: "POST",
+        body,
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(getApiMessage(payload, "Could not submit token purchase."));
+      }
+      setPurchaseNotice(getApiMessage(payload, "Token purchase submitted successfully."));
+      setPage(1);
+      setTokenRefreshKey((current) => current + 1);
+      setReceipt(null);
+      setShowPurchase(false);
+    } catch (error) {
+      setPurchaseError(error instanceof Error ? error.message : "Could not submit token purchase.");
+    } finally {
+      setPurchaseLoading(false);
+    }
+  };
 
   const copyAccountNumber = async () => {
     if (!transferDetails.accountNumber) return;
     await navigator.clipboard.writeText(transferDetails.accountNumber);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
-  };
-
-  const handleReceiptSelection = (file?: File) => {
-    setReceiptError("");
-
-    if (!file) {
-      setReceipt(null);
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setReceipt(null);
-      setReceiptError("The receipt must be 10 MB or smaller.");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-
-    if (!["image/png", "image/jpeg", "application/pdf"].includes(file.type)) {
-      setReceipt(null);
-      setReceiptError("Choose a PNG, JPG, or PDF receipt.");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-
-    setReceipt(file);
   };
 
   if (showPurchase) {
@@ -163,21 +234,48 @@ export default function TokensPage() {
         <p className="text-sm text-muted-foreground">Member services</p>
         <h1 className="text-2xl font-semibold tracking-tight">Purchase tokens</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Choose how many tokens you need, transfer payment to the company account,
-          and attach your receipt for verification.
+          Choose a package and token quantity, optionally attach a payment receipt, then submit your purchase request.
         </p>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.85fr)]">
+        <form onSubmit={submitPurchase}>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Coins className="size-5 text-primary" />
-              Token quantity
+              Token purchase
             </CardTitle>
-            <CardDescription>Enter the number of tokens you want to purchase.</CardDescription>
+            <CardDescription>Select the package and enter how many tokens you want.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="token-package">Package</Label>
+              <Select
+                value={selectedPackageId}
+                onValueChange={setSelectedPackageId}
+                disabled={packagesLoading || packages.length === 0}
+              >
+                <SelectTrigger id="token-package">
+                  <SelectValue placeholder={packagesLoading ? "Loading packages..." : "Select a package"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {packages.map((packageOption) => {
+                    const id = getPackageId(packageOption);
+                    return id ? (
+                      <SelectItem key={id} value={id}>
+                        {packageOption.name} — {formatTokenPrice(packageOption.price)}
+                      </SelectItem>
+                    ) : null;
+                  })}
+                </SelectContent>
+              </Select>
+              {packagesError && <p role="alert" className="text-sm text-destructive">{packagesError}</p>}
+              {!packagesLoading && !packagesError && packages.length === 0 && (
+                <p className="text-sm text-muted-foreground">No packages are available for purchase.</p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="token-quantity">Number of tokens</Label>
               <Input
@@ -190,64 +288,37 @@ export default function TokensPage() {
                 onChange={(event) => setQuantity(event.target.value)}
               />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="token-receipt">Transaction receipt</Label>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex min-h-36 w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-input bg-muted/20 px-4 py-6 text-center transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Upload className="size-5 text-muted-foreground" />
-                <span className="text-sm font-medium">
-                  {receipt ? "Choose a different receipt" : "Choose receipt file"}
-                </span>
-                <span className="max-w-full break-all text-xs text-muted-foreground">
-                  {receipt ? `${receipt.name} (${(receipt.size / 1024 / 1024).toFixed(2)} MB)` : "PNG, JPG, or PDF up to 10 MB"}
-                </span>
-              </button>
+              <Label htmlFor="token-receipt">Payment receipt (optional)</Label>
               <Input
-                ref={fileInputRef}
                 id="token-receipt"
                 type="file"
                 accept="image/png,image/jpeg,application/pdf"
-                className="sr-only"
-                onChange={(event) => handleReceiptSelection(event.target.files?.[0])}
+                onChange={(event) => setReceipt(event.target.files?.[0] ?? null)}
               />
-              {receiptError && (
-                <p role="alert" className="text-sm text-destructive">
-                  {receiptError}
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                PNG, JPG, or PDF. The receipt is sent with your purchase request.
+              </p>
               {receipt && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleReceiptSelection(undefined)}
-                  className="px-0 text-muted-foreground"
-                >
-                  Remove attachment
+                <Button type="button" variant="ghost" size="sm" onClick={() => setReceipt(null)} className="px-0 text-muted-foreground">
+                  Remove {receipt.name}
                 </Button>
               )}
             </div>
-
-            <div className="flex items-start gap-2 rounded-md border p-3 text-sm text-muted-foreground">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" />
-              <p>
-                {receipt
-                  ? "Receipt attached in this form. Online submission is not available yet; please contact the company to complete verification."
-                  : "Attach proof of transfer after making payment. Online receipt submission is not available yet."}
-              </p>
-            </div>
+            {purchaseError && <p role="alert" className="text-sm text-destructive">{purchaseError}</p>}
+            <Button type="submit" className="w-full" disabled={purchaseLoading || packagesLoading || !selectedPackageId}>
+              {purchaseLoading && <LoaderCircle className="animate-spin" />}
+              {purchaseLoading ? "Submitting purchase..." : "Submit purchase"}
+            </Button>
           </CardContent>
         </Card>
+        </form>
 
         <Card>
           <CardHeader>
             <CardTitle>Company transfer account</CardTitle>
             <CardDescription>
-              Transfer payment to this account, then attach your transaction receipt.
+              Use this account for any payment required for your selected package.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -292,11 +363,27 @@ export default function TokensPage() {
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Tokens requested</span>
                 <span className="font-medium text-foreground">
-                  {Math.max(0, Number.parseInt(quantity, 10) || 0)}
+                  {parsedQuantity}
                 </span>
               </div>
+              {selectedPackage && (
+                <>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Selected package</span>
+                    <span className="font-medium text-foreground">{selectedPackage.name}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Package price</span>
+                    <span className="font-medium text-foreground">{formatTokenPrice(selectedPackage.price)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 text-sm font-semibold">
+                    <span>Total amount</span>
+                    <span>{formatTokenPrice(totalAmount)}</span>
+                  </div>
+                </>
+              )}
               <p className="text-xs text-muted-foreground">
-                The token price and payment amount will be confirmed by the company.
+                The selected package ID and quantity will be sent with your purchase request.
               </p>
             </div>
           </CardContent>
@@ -319,6 +406,12 @@ export default function TokensPage() {
           Purchase tokens
         </Button>
       </header>
+
+      {purchaseNotice && (
+        <p role="status" className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm text-emerald-700 dark:text-emerald-400">
+          {purchaseNotice}
+        </p>
+      )}
 
       <Card>
         <CardHeader>
@@ -485,4 +578,18 @@ function formatTokenPrice(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function getPackageId(packageOption?: PackageOption): string | null {
+  const id = packageOption?.id ?? packageOption?.packageId;
+  return id === undefined || id === null ? null : String(id);
+}
+
+function getApiMessage(payload: unknown, fallback: string): string {
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    if (typeof record.message === "string") return record.message;
+    if (typeof record.detail === "string") return record.detail;
+  }
+  return fallback;
 }

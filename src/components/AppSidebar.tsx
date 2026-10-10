@@ -128,6 +128,14 @@ const AppSidebar = () => {
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
+                      <Link href="/admin/packages">
+                        <Package />
+                        <span>Packages</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
                       <Link href="/users">
                         <Users />
                         <span>Members</span>
