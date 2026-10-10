@@ -8,6 +8,7 @@ import {
   Home,
   LayoutDashboard,
   Package,
+  ClipboardList,
   ShoppingBag,
   ShoppingCart,
   Store,
@@ -131,6 +132,14 @@ const AppSidebar = () => {
                       <Link href="/admin/packages">
                         <Package />
                         <span>Packages</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <Link href="/admin/orders">
+                        <ClipboardList />
+                        <span>Treat Orders</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

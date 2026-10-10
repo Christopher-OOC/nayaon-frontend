@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Award, CalendarDays, Package, Users } from "lucide-react";
+import { ArrowUpRight, Award, CalendarDays, ClipboardList, Package, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const adminSections = [
@@ -18,6 +18,14 @@ const adminSections = [
     icon: Package,
     accent: "text-violet-700 bg-violet-500/10",
     count: "Catalog",
+  },
+  {
+    title: "Treat Orders",
+    description: "Review all orders and confirm their processing status.",
+    href: "/admin/orders",
+    icon: ClipboardList,
+    accent: "text-indigo-700 bg-indigo-500/10",
+    count: "Orders",
   },
   {
     title: "Members",
